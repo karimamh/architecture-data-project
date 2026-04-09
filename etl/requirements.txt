@@ -1,0 +1,10 @@
+pandas==2.2.1
+numpy==1.26.4
+geopandas==0.14.3
+shapely==2.0.3
+pyproj==3.6.1
+requests==2.31.0
+tqdm==4.66.2
+fiona==1.9.5
+rtree==1.1.0
+python-dotenv==1.0.1
