@@ -1,0 +1,8 @@
+{
+  "source": "Geofabrik / OpenStreetMap + Paris Data",
+  "date_extraction": "2026-04-10T13:59:40.457817",
+  "nombre_rues": 177865,
+  "longueur_totale_km": 9848.002561932026,
+  "projection": "EPSG:2154",
+  "licence": "ODbL OpenStreetMap + Open License Paris Data"
+}
