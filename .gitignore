@@ -3,39 +3,38 @@ venv/
 .env
 .env.*
 *.pyc
-__pycache__/
-node_modules/
 
-# # --- ETL PYTHON ---
-# etl/bronze/
-# etl/silver/
-# etl/gold/
-# etl/__pycache__/
-# etl/utils/__pycache__/
 
-# # --- NODE / API ---
-# api/node_modules/
-# api/.env
-# api/npm-debug.log
-# api/yarn-error.log
+# --- ETL PYTHON ---
+etl/bronze/
+etl/silver/
+etl/gold/
+etl/__pycache__/
+etl/utils/__pycache__/
 
-# # --- DASHBOARD (React / Vite) ---
-# dashboard/node_modules/
-# dashboard/dist/
-# dashboard/.env
-# dashboard/npm-debug.log
-# dashboard/yarn-error.log
+# --- NODE / API ---
+api/node_modules/
+api/.env
+api/npm-debug.log
+api/yarn-error.log
 
-# # --- LOGS ---
-# *.log
-# logs/
-# api/logs/
-# etl/logs/
+# --- DASHBOARD (React / Vite) ---
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.env
+dashboard/npm-debug.log
+dashboard/yarn-error.log
 
-# # --- SYSTEM FILES ---
-# .DS_Store
-# Thumbs.db
+# --- LOGS ---
+*.log
+logs/
+api/logs/
+etl/logs/
 
-# # --- DOCKER ---
-# *.pid
-# docker-data/
+# --- SYSTEM FILES ---
+.DS_Store
+Thumbs.db
+
+# --- DOCKER ---
+*.pid
+docker-data/
