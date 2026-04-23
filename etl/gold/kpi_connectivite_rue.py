@@ -1,8 +1,9 @@
 import pandas as pd
 import os
 
-INTERMEDIATE_DIR = "../../data/intermediate"
-GOLD_DIR = "../../data/gold"
+#INTERMEDIATE_DIR = "data/intermediate"
+SILVER_DIR = "data/silver"
+GOLD_DIR = "data/gold"
 
 def compute_scores(df):
     """
@@ -31,7 +32,7 @@ def compute_scores(df):
 
 def main():
     print("🔵 Chargement du fichier Silver...")
-    silver_path = os.path.join(INTERMEDIATE_DIR, "connectivite_rue_silver.parquet")
+    silver_path = os.path.join(SILVER_DIR, "connectivite_rue.parquet")
     df = pd.read_parquet(silver_path)
 
     print("🔵 Calcul du KPI Connectivité...")
@@ -39,7 +40,7 @@ def main():
 
     print("🔵 Sauvegarde du fichier Gold...")
     os.makedirs(GOLD_DIR, exist_ok=True)
-    output_path = os.path.join(GOLD_DIR, "connectivite_rue_gold.parquet")
+    output_path = os.path.join(GOLD_DIR, "kpi_connectivite_rue.parquet")
     df_gold.to_parquet(output_path, index=False)
 
     print(f"✅ KPI Connectivité généré : {output_path}")

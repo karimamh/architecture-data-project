@@ -4,8 +4,10 @@ from shapely.geometry import Point
 import os
 import ast
 
-RAW_DIR = "../../data/raw"
-INTERMEDIATE_DIR = "../../data/intermediate"
+RAW_DIR = "data/raw"
+INTERMEDIATE_DIR = "/data/intermediate"
+SILVER_DIR = "data/silver"
+BRONZE_DIR = "data/bronze"
 
 def load_raw_connectivity():
     """
@@ -121,13 +123,22 @@ def aggregate_by_street(gdf_mobile, gdf_wifi):
         "distance_to_street": "mobile_distance_mean"
     })
 
+    # wifi_agg = gdf_wifi.groupby("street_id").agg({
+    #     "wifi_site": "count",
+    #     "distance_to_street": "mean"
+    # }).rename(columns={
+    #     "wifi_site": "wifi_hotspots_count",
+    #     "distance_to_street": "wifi_distance_mean"
+    # })
+
     wifi_agg = gdf_wifi.groupby("street_id").agg({
-        "wifi_site": "count",
-        "distance_to_street": "mean"
+    "distance_to_street": "mean"
     }).rename(columns={
-        "wifi_site": "wifi_hotspots_count",
         "distance_to_street": "wifi_distance_mean"
     })
+
+    # 👉 AJOUTE CETTE LIGNE JUSTE EN DESSOUS
+    wifi_agg["wifi_hotspots_count"] = gdf_wifi.groupby("street_id").size()
 
     merged = mobile_agg.join(wifi_agg, how="outer").fillna(0)
     return merged.reset_index()
@@ -148,7 +159,7 @@ def main():
     gdf_wifi = clean_wifi(df_wifi)
 
     print("🔵 Chargement du référentiel des rues...")
-    streets_path = os.path.join(INTERMEDIATE_DIR, "streets_base.parquet")
+    streets_path = os.path.join(BRONZE_DIR, "streets_base.parquet")
     streets = gpd.read_parquet(streets_path)
 
     print("🔵 Jointure spatiale mobile → rues...")
@@ -160,7 +171,10 @@ def main():
     print("🔵 Agrégation par rue...")
     df_silver = aggregate_by_street(gdf_mobile, gdf_wifi)
 
-    output_path = os.path.join(INTERMEDIATE_DIR, "connectivite_rue_silver.parquet")
+    # output_path = os.path.join(INTERMEDIATE_DIR, "connectivite_rue_silver.parquet")
+    os.makedirs(SILVER_DIR, exist_ok=True)
+    output_path = os.path.join(SILVER_DIR, "connectivite_rue.parquet")
+
     df_silver.to_parquet(output_path, index=False)
 
     print(f"✅ Fichier Silver généré : {output_path}")

@@ -1,50 +1,92 @@
-# # --- ENVIRONNEMENT PYTHON ---
+# --- PYTHON ---
 venv/
 .env
-.env.*
 *.pyc
+__pycache__/
+.vscode/
+
+# --- DATA (IMPORTANT) ---
+data/*
+data/raw/.cache/
+data/intermediate/*.geojson
+data/intermediate/*.json
+!data/*/
+!data/**/.gitkeep
 
 
-# --- ETL PYTHON ---
-etl/bronze/
-etl/silver/
-etl/gold/
-etl/__pycache__/
-etl/utils/__pycache__/
-
-# data
-data/raw/
-data/intermediate/
-data/gold/
-data/silver/
+*.parquet
+*.csv
 
 # --- NODE / API ---
 api/node_modules/
 api/.env
-api/npm-debug.log
-api/yarn-error.log
 
-# --- DASHBOARD (React / Vite) ---
+# --- DASHBOARD ---
 dashboard/node_modules/
 dashboard/dist/
-dashboard/.env
-dashboard/npm-debug.log
-dashboard/yarn-error.log
 
 # --- LOGS ---
 *.log
 logs/
-api/logs/
-etl/logs/
 
-# --- SYSTEM FILES ---
+# --- SYSTEM ---
 .DS_Store
 Thumbs.db
 
-# --- DOCKER ---
-*.pid
-docker-data/
 
-# Ignorer les gros fichiers problématiques
-data/raw/.cache/
-data/intermediate/streets_base.geojson
+test kpis/
+
+
+
+# # # --- ENVIRONNEMENT PYTHON ---
+# venv/
+# .env
+# .env.*
+# *.pyc
+# __pycache__/
+# .vscode/
+
+# # --- ETL PYTHON ---
+# # etl/bronze/
+# # etl/silver/
+# # etl/gold/
+# etl/__pycache__/
+# etl/utils/__pycache__/
+
+# # data
+# data/raw/
+# data/intermediate/
+# data/gold/
+# data/silver/
+# data/bronze/
+
+# # --- NODE / API ---
+# api/node_modules/
+# api/.env
+# api/npm-debug.log
+# api/yarn-error.log
+
+# # --- DASHBOARD (React / Vite) ---
+# dashboard/node_modules/
+# dashboard/dist/
+# dashboard/.env
+# dashboard/npm-debug.log
+# dashboard/yarn-error.log
+
+# # --- LOGS ---
+# *.log
+# logs/
+# api/logs/
+# etl/logs/
+
+# # --- SYSTEM FILES ---
+# .DS_Store
+# Thumbs.db
+
+# # --- DOCKER ---
+# *.pid
+# docker-data/
+
+# # Ignorer les gros fichiers problématiques
+# data/raw/.cache/
+# data/intermediate/streets_base.geojson

@@ -12,8 +12,9 @@ import json
 
 SCRIPT_DIR = Path(__file__).parent.absolute()
 PROJECT_ROOT = SCRIPT_DIR.parent.parent
-RAW_DIR = os.path.join(PROJECT_ROOT, "data", "raw")
-CSV_PATH = os.path.join(PROJECT_ROOT, "data", "raw", "antennes-relais.csv")
+RAW_DIR = os.path.join(PROJECT_ROOT, "data", "raw") 
+BRONZE_DIR = os.path.join(PROJECT_ROOT, "data", "bronze")
+CSV_PATH = os.path.join(RAW_DIR, "antennes-relais.csv")
 
 # API ANFR (limit max = 100)
 API_URL = "https://opendata.grandparis.fr/api/explore/v2.1/catalog/datasets/antennes-relais/records"
@@ -212,8 +213,10 @@ def save_as_parquet(df, source_name="antennes"):
 
     gdf = gdf[[c for c in keep_cols if c in gdf.columns]]
 
-    os.makedirs(RAW_DIR, exist_ok=True)
-    output_path = os.path.join(RAW_DIR, "antennes_mobile.parquet")
+    #os.makedirs(RAW_DIR, exist_ok=True)
+    os.makedirs(BRONZE_DIR, exist_ok=True)
+    #output_path = os.path.join(RAW_DIR, "antennes_mobile.parquet")
+    output_path = os.path.join(BRONZE_DIR, "antennes_mobile.parquet")
 
     print("🔵 Sauvegarde du fichier ANFR brut...")
     gdf.to_parquet(output_path, index=False)

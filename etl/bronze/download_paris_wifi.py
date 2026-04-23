@@ -13,7 +13,8 @@ import json
 SCRIPT_DIR = Path(__file__).parent.absolute()
 PROJECT_ROOT = SCRIPT_DIR.parent.parent
 RAW_DIR = os.path.join(PROJECT_ROOT, "data", "raw")
-CSV_PATH = os.path.join(PROJECT_ROOT, "data", "raw", "sites-disposant-du-service-paris-wi-fi.csv")
+BRONZE_DIR = os.path.join(PROJECT_ROOT, "data", "bronze")
+CSV_PATH = os.path.join(RAW_DIR, "sites-disposant-du-service-paris-wi-fi.csv")
 
 API_URL = "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/sites-disposant-du-service-paris-wi-fi/records"
 
@@ -228,8 +229,11 @@ def save_as_parquet(df):
     
     gdf = gdf[[c for c in keep_cols if c in gdf.columns]]
 
-    os.makedirs(RAW_DIR, exist_ok=True)
-    output_path = os.path.join(RAW_DIR, "paris_wifi.parquet")
+    os.makedirs(BRONZE_DIR, exist_ok=True)
+    #os.makedirs(RAW_DIR, exist_ok=True)
+    
+    # output_path = os.path.join(RAW_DIR, "paris_wifi.parquet")
+    output_path = os.path.join(BRONZE_DIR, "paris_wifi.parquet")
 
     print("🔵 Sauvegarde du fichier Wi-Fi brut...")
     gdf.to_parquet(output_path, index=False)

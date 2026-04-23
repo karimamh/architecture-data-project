@@ -19,6 +19,7 @@ import hashlib
 SCRIPT_DIR = Path(__file__).parent.absolute()
 PROJECT_ROOT = SCRIPT_DIR.parent.parent  # remonte de etl/bronze/ à racine
 DATA_RAW = PROJECT_ROOT / "data" / "raw"
+DATA_BRONZE = PROJECT_ROOT / "data" / "bronze"
 DATA_INTERMEDIATE = PROJECT_ROOT / "data" / "intermediate"
 DATA_GOLD = PROJECT_ROOT / "data" / "gold"
 
@@ -233,7 +234,8 @@ def build_streets_gdf():
         print("\n🔵 Sauvegarde des fichiers...")
         
         # Sauvegarde en Parquet
-        output_parquet = DATA_INTERMEDIATE / "streets_base.parquet"
+        #output_parquet = DATA_INTERMEDIATE / "streets_base.parquet"
+        output_parquet = DATA_BRONZE / "streets_base.parquet"
         result.to_parquet(output_parquet, index=False)
         print(f"   ✅ streets_base.parquet : {output_parquet}")
         
