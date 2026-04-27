@@ -1,50 +1,87 @@
-import pandas as pd
+import sys
 import os
+import pandas as pd
+import numpy as np
 
-#INTERMEDIATE_DIR = "data/intermediate"
-SILVER_DIR = "data/silver"
-GOLD_DIR = "data/gold"
+# Ajoute la racine au chemin
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-def compute_scores(df):
-    """
-    Calcule le score brut, le score max et le score total normalisé (0-100)
-    selon la formule fournie par Ewa.
-    """
+def min_max_scaling(series):
+    """Normalisation manuelle (sans importer utils)"""
+    if series.max() == series.min():
+        return pd.Series([0.5] * len(series))
+    return (series - series.min()) / (series.max() - series.min())
 
-    # 1) Nombre d'antennes mobiles par rue
-    # On considère qu'une antenne est associée à une rue si elle apparaît dans le Silver
-    df["mobile_antennas_count"] = df["mobile_distance_mean"].apply(lambda x: 1 if x > 0 else 0)
-
-    # 2) Score brut = 2 * antennes + bornes wifi
-    df["score_brut"] = (
-        2 * df["mobile_antennas_count"]
-        + df["wifi_hotspots_count"]
-    )
-
-    # 3) Score max
-    score_max = df["score_brut"].max()
-
-    # 4) Score total normalisé (0–100)
-    df["kpi_connectivite"] = (df["score_brut"] / score_max) * 100
-
-    return df
-
-
-def main():
-    print("🔵 Chargement du fichier Silver...")
-    silver_path = os.path.join(SILVER_DIR, "connectivite_rue.parquet")
-    df = pd.read_parquet(silver_path)
-
-    print("🔵 Calcul du KPI Connectivité...")
-    df_gold = compute_scores(df)
-
-    print("🔵 Sauvegarde du fichier Gold...")
-    os.makedirs(GOLD_DIR, exist_ok=True)
-    output_path = os.path.join(GOLD_DIR, "kpi_connectivite_rue.parquet")
-    df_gold.to_parquet(output_path, index=False)
-
-    print(f"✅ KPI Connectivité généré : {output_path}")
+def compute_kpi_cyclable():
+    print("=" * 60)
+    print("🚲 Calcul du KPI de cyclabilité")
+    print("=" * 60)
+    
+    # Chemins
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(base_dir, '../..'))
+    
+    input_path = os.path.join(project_root, "data", "silver", "cyclable_clean.parquet")
+    output_path = os.path.join(project_root, "data", "gold", "kpi_cyclable.parquet")
+    
+    # Vérification
+    if not os.path.exists(input_path):
+        print(f"❌ Fichier non trouvé : {input_path}")
+        print("   Vérifie que le fichier existe dans data/silver/")
+        return
+    
+    print(f"📂 Lecture : {input_path}")
+    df = pd.read_parquet(input_path)
+    print(f"   ✅ {len(df)} enregistrements chargés")
+    print(f"   📋 Colonnes : {df.columns.tolist()}")
+    
+    # Détection des colonnes
+    rue_col = None
+    for col in ['rue', 'nom_rue', 'street_id', 'id', 'name']:
+        if col in df.columns:
+            rue_col = col
+            break
+    
+    longueur_col = None
+    for col in ['longueur', 'longueur_m', 'distance', 'length']:
+        if col in df.columns:
+            longueur_col = col
+            break
+    
+    if rue_col is None:
+        print("❌ Colonne 'rue' non trouvée !")
+        return
+    
+    if longueur_col is None:
+        print("❌ Colonne 'longueur' non trouvée !")
+        return
+    
+    print(f"   🔄 Utilisation : rue='{rue_col}', longueur='{longueur_col}'")
+    
+    # Agrégation par rue
+    df_grouped = df.groupby(rue_col)[longueur_col].sum().reset_index()
+    df_grouped = df_grouped.rename(columns={rue_col: "rue", longueur_col: "longueur"})
+    
+    print(f"   ✅ {len(df_grouped)} rues uniques")
+    
+    # Score cyclable (basé sur la longueur)
+    df_grouped["score"] = df_grouped["longueur"]
+    
+    # Normalisation
+    df_grouped["score"] = min_max_scaling(df_grouped["score"])
+    df_grouped["category"] = "cyclabilite"
+    
+    # Sauvegarde
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    df_grouped[["rue", "score", "category"]].to_parquet(output_path, index=False)
+    
+    print(f"\n✅ Sauvegarde réussie !")
+    print(f"   📁 Fichier : {output_path}")
+    print(f"   📊 {len(df_grouped)} rues traitées")
+    print(f"   📈 Score moyen : {df_grouped['score'].mean():.3f}")
+    print(f"   📈 Score max : {df_grouped['score'].max():.3f}")
 
 
 if __name__ == "__main__":
-    main()
+    compute_kpi_cyclable()
