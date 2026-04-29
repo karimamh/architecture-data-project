@@ -3,10 +3,22 @@
  * Serveur Express - Version Excellence 15/10
  */
 
+// const express = require('express');
+// const cors = require('cors');
+// const helmet = require('helmet');
+// const compression = require('compression');
+// const rateLimit = require('./middleware/rateLimit');
+// const { errorHandler, notFound } = require('./middleware/errorHandler');
+
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
+
+const mongoose = require('mongoose');
+
 const rateLimit = require('./middleware/rateLimit');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 
@@ -18,10 +30,24 @@ const timelineRoutes = require('./routes/timeline.routes');
 const foodRoutes = require('./routes/food.routes');
 const pollutionRoutes = require('./routes/pollution.routes');
 const transportRoutes = require('./routes/transport.routes');
+const kpiRoutes = require('./routes/kpi.routes');
+const streetsRoutes = require('./routes/streets.routes');
+const { getAllWifi, getAntennes } = require('./controllers/connectivite.controller');
 
 // Initialisation
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8000;
+
+
+mongoose.connect(
+ process.env.MONGO_URI
+)
+.then(() => {
+ console.log("Mongo connected");
+})
+.catch(err => {
+ console.error(err);
+});
 
 // ============================================================
 // MIDDLEWARES GLOBAUX
@@ -34,11 +60,24 @@ app.use(helmet());
 app.use(compression());
 
 // CORS
+// app.use(cors({
+//   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+//   allowedHeaders: ['Content-Type', 'Authorization'],
+//   credentials: true
+// }));
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+origin:[
+'http://localhost:3000',
+'http://localhost:3001'
+],
+methods:['GET','POST','PUT','DELETE','OPTIONS'],
+allowedHeaders:[
+'Content-Type',
+'Authorization'
+],
+credentials:true
 }));
 
 // JSON parser
@@ -65,6 +104,10 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     status: 'online',
     endpoints: {
+      kpi: '/api/kpi',
+      rues: '/api/rues',
+      wifi: '/api/wifi',
+      antennes: '/api/antennes',
       arrondissements: '/api/arrondissements',
       compare: '/api/compare',
       connectivite: '/api/connectivite',
@@ -72,7 +115,6 @@ app.get('/', (req, res) => {
       food: '/api/food',
       pollution: '/api/pollution',
       transport: '/api/transport',
-      kpi: '/api/kpi',
       health: '/health'
     }
   });
@@ -89,27 +131,11 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Route KPI globale
-app.get('/api/kpi', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      prix_m2_median: 10500,
-      logements_sociaux_pct: 18.5,
-      wifi_count: 275,
-      antennes_count: 2170,
-      velib_stations: 1460,
-      restaurants: 4500
-    },
-    metadata: {
-      source: 'Urban Data Explorer API',
-      version: '1.0.0',
-      timestamp: new Date().toISOString()
-    }
-  });
-});
-
 // Routes API
+app.use('/api/kpi', kpiRoutes);
+app.use('/api/rues', streetsRoutes);
+app.get('/api/wifi', getAllWifi);
+app.get('/api/antennes', getAntennes);
 app.use('/api/arrondissements', arrondissementRoutes);
 app.use('/api/compare', compareRoutes);
 app.use('/api/connectivite', connectiviteRoutes);

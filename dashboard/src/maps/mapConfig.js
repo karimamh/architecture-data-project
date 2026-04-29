@@ -15,8 +15,13 @@ export const MAP_CONFIG = {
   ]
 };
 
-// Style par défaut (Carto, gratuit, sans token)
-export const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+// Style par défaut (OpenFreeMap, gratuit, sans token)
+// export const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+
+
+
+export const MAP_STYLE =
+'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
 
 // Styles alternatifs gratuits
 export const FREE_STYLES = {

@@ -1,312 +1,259 @@
-// MapContainer.jsx - Version complète avec toutes les couches
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { MAP_CONFIG, MAP_STYLE } from './mapConfig';
 
-const MapContainer = ({ 
-  streetsData,      // GeoJSON des rues
-  arrondissementsData, // GeoJSON des arrondissements
-  wifiData,         // GeoJSON des points Wi-Fi
-  antennesData,     // GeoJSON des antennes
+const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+const PARIS_CENTER = [2.3522, 48.8566];
+
+const KPI_CONFIG = {
+  transport: {
+    field: 'transport_score',
+    label: 'Score transport (/100)',
+    colors: [0,'#fee0d2', 30,'#fc9272', 60,'#ef4444', 100,'#991b1b'],
+    legend: [['#991b1b','Elevé (≥60)'],['#ef4444','Moyen (30)'],['#fc9272','Faible (10)'],['#94a3b8','N/D']],
+  },
+  cyclable: {
+    field: 'cyclable_score',
+    label: 'Score cyclable (/100)',
+    colors: [0,'#ecfdf5', 20,'#6ee7b7', 50,'#10b981', 100,'#064e3b'],
+    legend: [['#064e3b','Elevé (≥50)'],['#10b981','Moyen (20)'],['#6ee7b7','Faible (5)'],['#94a3b8','N/D']],
+  },
+  marche: {
+    field: 'marche_score',
+    label: 'Score marché (/100)',
+    colors: [0,'#fffbeb', 20,'#fcd34d', 50,'#f59e0b', 100,'#b45309'],
+    legend: [['#b45309','Elevé (≥50)'],['#f59e0b','Moyen (20)'],['#fcd34d','Faible (5)'],['#94a3b8','N/D']],
+  },
+  connectivite: {
+    field: 'connectivite_score',
+    label: 'Score connectivité (/100)',
+    colors: [0,'#eff6ff', 30,'#93c5fd', 60,'#3b82f6', 100,'#1e3a8a'],
+    legend: [['#1e3a8a','Elevé (≥60)'],['#3b82f6','Moyen (30)'],['#93c5fd','Faible (5)'],['#94a3b8','N/D']],
+  },
+};
+
+function colorExpr(field, colors) {
+  return [
+    'case',
+    ['!=', ['get', field], null],
+    ['interpolate', ['linear'], ['get', field], ...colors],
+    '#94a3b8',
+  ];
+}
+
+// Calcule la bounding box d'un FeatureCollection
+function getBounds(geojson) {
+  let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+  for (const f of (geojson.features || [])) {
+    if (!f.geometry) continue;
+    let coords = [];
+    if (f.geometry.type === 'LineString') {
+      coords = f.geometry.coordinates || [];
+    } else if (f.geometry.type === 'MultiLineString') {
+      coords = (f.geometry.coordinates || []).reduce((acc, c) => acc.concat(c), []);
+    } else if (f.geometry.type === 'Polygon') {
+      coords = (f.geometry.coordinates || []).reduce((acc, c) => acc.concat(c), []);
+    }
+    for (const coord of coords) {
+      if (!Array.isArray(coord) || coord.length < 2) continue;
+      const lon = coord[0], lat = coord[1];
+      if (typeof lon !== 'number' || typeof lat !== 'number') continue;
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }
+  }
+  if (!isFinite(minLon)) return null;
+  return [[minLon, minLat], [maxLon, maxLat]];
+}
+
+const MapContainer = ({
+  streetsData,
+  activeKPI = 'transport',
+  selectedStreetId = null,
   onFeatureClick,
-  highlightId
+  fitToData = false,
+  centerOn = null,
 }) => {
-  const mapContainer = useRef(null);
-  const map = useRef(null);
-  const popup = useRef(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const containerRef = useRef(null);
+  const mapRef       = useRef(null);
+  const popupRef     = useRef(null);
+  const [ready, setReady] = useState(false);
 
-  // 1. INITIALISATION
+  // ── Init carte ──────────────────────────────────────────────
   useEffect(() => {
-    if (map.current) return;
+    if (mapRef.current) return;
 
-    map.current = new maplibregl.Map({
-      container: mapContainer.current,
+    const map = new maplibregl.Map({
+      container: containerRef.current,
       style: MAP_STYLE,
-      center: MAP_CONFIG.center,
-      zoom: MAP_CONFIG.zoom,
-      minZoom: MAP_CONFIG.minZoom,
-      maxZoom: MAP_CONFIG.maxZoom,
-      maxBounds: MAP_CONFIG.maxBounds
+      center: PARIS_CENTER,
+      zoom: 12,
+      minZoom: 10,
+      maxZoom: 18,
     });
 
-    // Contrôles
-    map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
-    map.current.addControl(new maplibregl.ScaleControl(), 'bottom-right');
-    map.current.addControl(new maplibregl.FullscreenControl(), 'top-right');
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    map.addControl(new maplibregl.ScaleControl(), 'bottom-right');
 
-    // Popup
-    popup.current = new maplibregl.Popup({
-      closeButton: true,
-      closeOnClick: false,
-      maxWidth: '300px',
-      offset: 25
-    });
+    popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '280px' });
 
-    map.current.on('load', () => {
-      console.log('✅ Carte chargée');
-      setIsLoaded(true);
-    });
+    map.on('load', () => setReady(true));
+    mapRef.current = map;
 
-    return () => {
-      if (map.current) map.current.remove();
-    };
+    return () => { map.remove(); mapRef.current = null; };
   }, []);
 
-  // 2. COUCHE DES ARRONDISSEMENTS (choroplèthe)
+  // ── Ajout / mise à jour des rues ────────────────────────────
   useEffect(() => {
-    if (!isLoaded || !map.current || !arrondissementsData) return;
+    const map = mapRef.current;
+    if (!ready || !map || !streetsData) return;
 
-    const sourceId = 'arrondissements';
-    
-    if (map.current.getSource(sourceId)) {
-      map.current.getSource(sourceId).setData(arrondissementsData);
-    } else {
-      map.current.addSource(sourceId, {
-        type: 'geojson',
-        data: arrondissementsData
-      });
+    const cfg = KPI_CONFIG[activeKPI] || KPI_CONFIG.transport;
+    const paint = colorExpr(cfg.field, cfg.colors);
 
-      // Couche des polygones (colorée selon le prix)
-      map.current.addLayer({
-        id: 'arrondissements-fill',
-        type: 'fill',
-        source: sourceId,
-        paint: {
-          'fill-color': [
-            'interpolate',
-            ['linear'],
-            ['get', 'prix_m2_median'],
-            0, '#fee5d9',
-            5000, '#fcae91',
-            10000, '#fb6a4a',
-            15000, '#de2d26',
-            20000, '#a50f15'
-          ],
-          'fill-opacity': 0.6,
-          'fill-outline-color': '#ffffff'
-        }
-      });
-
-      // Couche des contours
-      map.current.addLayer({
-        id: 'arrondissements-outline',
-        type: 'line',
-        source: sourceId,
-        paint: {
-          'line-color': '#2c3e50',
-          'line-width': 1.5,
-          'line-opacity': 0.5
-        }
-      });
+    if (map.getSource('streets')) {
+      map.getSource('streets').setData(streetsData);
+      map.setPaintProperty('streets-line', 'line-color', paint);
+      // Zoom sur les données si filtre actif
+      if (fitToData && streetsData.features?.length) {
+        const bounds = getBounds(streetsData);
+        if (bounds) map.fitBounds(bounds, { padding: 60, maxZoom: 15, duration: 600 });
+      }
+      return;
     }
 
-    // Clic sur un arrondissement
-    map.current.on('click', 'arrondissements-fill', (e) => {
-      if (e.features && e.features.length > 0) {
-        const feature = e.features[0];
-        const props = feature.properties;
-        const coords = e.lngLat;
-        
-        popup.current
-          .setLngLat(coords)
-          .setHTML(`
-            <div style="padding: 10px;">
-              <h3 style="margin: 0 0 8px 0;">${props.l_ar || `Paris ${props.c_ar}ème`}</h3>
-              <p><strong>💰 Prix au m² :</strong> ${props.prix_m2_median?.toLocaleString()} €</p>
-              <p><strong>🏠 Logements sociaux :</strong> ${props.logements_sociaux_pct || 0}%</p>
-              <p><strong>📶 Hotspots Wi-Fi :</strong> ${props.wifi_count || 0}</p>
+    // Première création des layers
+    map.addSource('streets', { type: 'geojson', data: streetsData });
+
+    // Layer normal
+    map.addLayer({
+      id: 'streets-line',
+      type: 'line',
+      source: 'streets',
+      paint: {
+        'line-color': paint,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 11, 1, 15, 2.5],
+        'line-opacity': 0.85,
+      },
+    });
+
+    // Layer surbrillance (rue cliquée)
+    map.addLayer({
+      id: 'streets-highlight',
+      type: 'line',
+      source: 'streets',
+      filter: ['==', ['get', 'street_id'], -1], // aucune rue par défaut
+      paint: {
+        'line-color': '#ffffff',
+        'line-width': 6,
+        'line-opacity': 1,
+      },
+    });
+    map.addLayer({
+      id: 'streets-highlight-inner',
+      type: 'line',
+      source: 'streets',
+      filter: ['==', ['get', 'street_id'], -1],
+      paint: {
+        'line-color': '#facc15',
+        'line-width': 3,
+        'line-opacity': 1,
+      },
+    });
+
+    // Clic sur une rue
+    map.on('click', 'streets-line', (e) => {
+      const p = e.features[0].properties;
+
+      const rows = [
+        ['Transport',    p.transport_score,    '/100'],
+        ['Cyclable',     p.cyclable_score,     '/100'],
+        ['Marché',       p.marche_score,       '/100'],
+        ['Connectivité', p.connectivite_score, '/100'],
+      ].filter(([, v]) => v != null).map(([label, v, unit]) =>
+        `<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:13px">
+           <span style="color:#64748b">${label}</span>
+           <b>${Number(v).toFixed(1)}${unit}</b>
+         </div>`
+      ).join('');
+
+      popupRef.current
+        .setLngLat(e.lngLat)
+        .setHTML(`
+          <div style="padding:12px;font-family:sans-serif">
+            <strong style="font-size:14px;display:block;margin-bottom:6px">${p.name || 'Rue sans nom'}</strong>
+            <div style="font-size:12px;color:#94a3b8;margin-bottom:10px">
+              ${p.arrondissement ? p.arrondissement + 'e arr.' : ''}
+              ${p.length_km ? '· ' + Number(p.length_km).toFixed(2) + ' km' : ''}
             </div>
-          `)
-          .addTo(map.current);
-        
-        if (onFeatureClick) onFeatureClick(feature);
-      }
+            ${rows || '<span style="font-size:13px;color:#94a3b8">Aucun score disponible</span>'}
+          </div>
+        `)
+        .addTo(map);
+
+      if (onFeatureClick) onFeatureClick(e.features[0]);
     });
 
-  }, [isLoaded, arrondissementsData, onFeatureClick]);
+    map.on('mouseenter', 'streets-line', () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', 'streets-line', () => { map.getCanvas().style.cursor = ''; });
 
-  // 3. COUCHE DES RUES
-  useEffect(() => {
-    if (!isLoaded || !map.current || !streetsData) return;
-
-    const sourceId = 'streets';
-    
-    if (map.current.getSource(sourceId)) {
-      map.current.getSource(sourceId).setData(streetsData);
-    } else {
-      map.current.addSource(sourceId, {
-        type: 'geojson',
-        data: streetsData
-      });
-
-      map.current.addLayer({
-        id: 'streets-layer',
-        type: 'line',
-        source: sourceId,
-        layout: {
-          'line-join': 'round',
-          'line-cap': 'round'
-        },
-        paint: {
-          'line-color': [
-            'match',
-            ['get', 'type'],
-            'primary', '#FF6B6B',
-            'secondary', '#4ECDC4',
-            'tertiary', '#45B7D1',
-            'residential', '#96CEB4',
-            'service', '#FFEAA7',
-            '#D3D3D3'
-          ],
-          'line-width': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            10, 1,
-            14, 2,
-            18, 3
-          ],
-          'line-opacity': 0.8
-        }
-      });
+    // Zoom initial si données filtrées
+    if (fitToData && streetsData.features?.length) {
+      const bounds = getBounds(streetsData);
+      if (bounds) map.fitBounds(bounds, { padding: 60, maxZoom: 15, duration: 600 });
     }
+  }, [ready, streetsData, fitToData, onFeatureClick]);
 
-    // Survol
-    map.current.on('mouseenter', 'streets-layer', () => {
-      map.current.getCanvas().style.cursor = 'pointer';
-    });
-    map.current.on('mouseleave', 'streets-layer', () => {
-      map.current.getCanvas().style.cursor = '';
-    });
-
-    // Clic
-    map.current.on('click', 'streets-layer', (e) => {
-      if (e.features && e.features.length > 0) {
-        const feature = e.features[0];
-        const props = feature.properties;
-        const coords = e.lngLat;
-        
-        popup.current
-          .setLngLat(coords)
-          .setHTML(`
-            <div style="padding: 10px;">
-              <h3 style="margin: 0 0 8px 0;">${props.name || 'Rue sans nom'}</h3>
-              <p><strong>Type :</strong> ${props.type || 'Non spécifié'}</p>
-              <p><strong>Arrondissement :</strong> ${props.arrondissement}ème</p>
-              <p><strong>Longueur :</strong> ${(props.length_km || 0).toFixed(2)} km</p>
-            </div>
-          `)
-          .addTo(map.current);
-        
-        if (onFeatureClick) onFeatureClick(feature);
-      }
-    });
-
-  }, [isLoaded, streetsData, onFeatureClick]);
-
-  // 4. COUCHE DES POINTS WI-FI (avec clustering)
+  // ── Mise à jour couleurs KPI ────────────────────────────────
   useEffect(() => {
-    if (!isLoaded || !map.current || !wifiData) return;
+    const map = mapRef.current;
+    if (!ready || !map || !map.getLayer('streets-line')) return;
+    const cfg = KPI_CONFIG[activeKPI] || KPI_CONFIG.transport;
+    map.setPaintProperty('streets-line', 'line-color', colorExpr(cfg.field, cfg.colors));
+  }, [ready, activeKPI]);
 
-    const sourceId = 'wifi';
-    
-    if (map.current.getSource(sourceId)) {
-      map.current.getSource(sourceId).setData(wifiData);
-    } else {
-      map.current.addSource(sourceId, {
-        type: 'geojson',
-        data: wifiData,
-        cluster: true,
-        clusterMaxZoom: 14,
-        clusterRadius: 50
-      });
-
-      // Clusters
-      map.current.addLayer({
-        id: 'wifi-clusters',
-        type: 'circle',
-        source: sourceId,
-        filter: ['has', 'point_count'],
-        paint: {
-          'circle-color': [
-            'step',
-            ['get', 'point_count'],
-            '#51bbd6',
-            10, '#f1f075',
-            30, '#f28cb1'
-          ],
-          'circle-radius': [
-            'step',
-            ['get', 'point_count'],
-            20,
-            10, 30,
-            30, 40
-          ],
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff'
-        }
-      });
-
-      // Points individuels
-      map.current.addLayer({
-        id: 'wifi-points',
-        type: 'circle',
-        source: sourceId,
-        filter: ['!', ['has', 'point_count']],
-        paint: {
-          'circle-radius': 6,
-          'circle-color': '#00BFFF',
-          'circle-opacity': 0.8,
-          'circle-stroke-width': 1,
-          'circle-stroke-color': '#ffffff'
-        }
-      });
-    }
-
-    // Clic sur cluster (zoom)
-    map.current.on('click', 'wifi-clusters', (e) => {
-      const features = map.current.queryRenderedFeatures(e.point, { layers: ['wifi-clusters'] });
-      const clusterId = features[0].properties.cluster_id;
-      const source = map.current.getSource('wifi');
-      source.getClusterExpansionZoom(clusterId, (err, zoom) => {
-        if (err) return;
-        map.current.easeTo({ center: features[0].geometry.coordinates, zoom });
-      });
-    });
-
-  }, [isLoaded, wifiData]);
-
-  // 5. HIGHLIGHT DE RUE
+  // ── Mise à jour surbrillance rue sélectionnée ───────────────
   useEffect(() => {
-    if (!isLoaded || !map.current || !map.current.getLayer('streets-layer')) return;
-    
-    if (highlightId) {
-      if (!map.current.getLayer('highlight-layer')) {
-        map.current.addLayer({
-          id: 'highlight-layer',
-          type: 'line',
-          source: 'streets',
-          paint: {
-            'line-color': '#FFD700',
-            'line-width': 5,
-            'line-opacity': 1
-          },
-          filter: ['==', 'street_id', highlightId]
-        });
-      } else {
-        map.current.setFilter('highlight-layer', ['==', 'street_id', highlightId]);
-      }
-    }
-  }, [isLoaded, highlightId]);
+    const map = mapRef.current;
+    if (!ready || !map || !map.getLayer('streets-highlight')) return;
+    const filter = selectedStreetId != null
+      ? ['==', ['get', 'street_id'], selectedStreetId]
+      : ['==', ['get', 'street_id'], -1];
+    map.setFilter('streets-highlight', filter);
+    map.setFilter('streets-highlight-inner', filter);
+  }, [ready, selectedStreetId]);
+
+  // ── Centrer la carte sur une rue (depuis la recherche) ───────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || !centerOn) return;
+    map.flyTo({ center: [centerOn.lng, centerOn.lat], zoom: Math.max(map.getZoom(), 15), duration: 700 });
+  }, [ready, centerOn]);
+
+  const cfg = KPI_CONFIG[activeKPI] || KPI_CONFIG.transport;
 
   return (
-    <div 
-      ref={mapContainer} 
-      style={{ width: '100%', height: '100vh' }}
-      className="map-container"
-    />
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+
+      {ready && (
+        <div style={{
+          position: 'absolute', bottom: '32px', left: '12px',
+          background: 'white', borderRadius: '8px', padding: '10px 14px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)', fontSize: '12px', zIndex: 10,
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: '6px', color: '#1e293b' }}>{cfg.label}</div>
+          {cfg.legend.map(([color, label]) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+              <div style={{ width: '20px', height: '3px', background: color, borderRadius: '2px', flexShrink: 0 }} />
+              <span style={{ color: '#475569' }}>{label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 

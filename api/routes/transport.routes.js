@@ -9,5 +9,6 @@ router.use(lightLimiter);
 router.get('/metro', controller.getMetroStations);
 router.get('/velib', controller.getVelibStations);
 router.get('/score/:arrondissement', controller.getTransportScore);
+router.get('/', controller.getAllTransport);
 
 module.exports = router;

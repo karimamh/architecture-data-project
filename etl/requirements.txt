@@ -9,3 +9,18 @@ fiona==1.9.5
 rtree==1.1.0
 python-dotenv==1.0.1
 pyarrow==15.0.2
+
+
+# PostgreSQL
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.29
+
+# Mongo
+pymongo==4.17.0
+dnspython==2.8.0
+
+# APIs (pour Node tu gères avec package.json, donc pas ici)
+
+# Optionnel utile debug/notebooks
+jupyter==1.0.0
+ipykernel==6.29.4

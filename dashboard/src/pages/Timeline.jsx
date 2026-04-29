@@ -1,139 +1,132 @@
 import React, { useState, useEffect } from 'react';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-import Loader from '../components/Loader';
 import { getKPITimeline } from '../api/getKPI';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+
+const S = {
+  page: { maxWidth: '900px', margin: '0 auto', padding: '32px 24px' },
+  card: { background: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', padding: '24px', marginBottom: '24px' },
+  label: { display: 'block', fontSize: '13px', fontWeight: 500, color: '#475569', marginBottom: '6px' },
+  select: { width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', background: 'white' },
+  grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' },
+};
+
+const kpiOptions = [
+  { value: 'prix_m2', label: 'Prix au m²' },
+  { value: 'logements_sociaux_pct', label: 'Logements sociaux (%)' },
+  { value: 'wifi_density', label: 'Densité Wi-Fi' },
+  { value: 'antennes_count', label: 'Antennes mobiles' },
+];
+
+const arrondissements = Array.from({ length: 20 }, (_, i) => i + 1);
 
 const Timeline = () => {
   const [selectedKPI, setSelectedKPI] = useState('prix_m2');
   const [selectedArr, setSelectedArr] = useState('');
-  const [timelineData, setTimelineData] = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  const arrondissements = ['', ...Array.from({ length: 20 }, (_, i) => i + 1)];
-
-  const kpiOptions = [
-    { value: 'prix_m2', label: 'Prix au m²' },
-    { value: 'logements_sociaux_pct', label: 'Logements sociaux (%)' },
-    { value: 'wifi_density', label: 'Densité Wi-Fi' },
-    { value: 'antennes_count', label: 'Antennes mobiles' },
-  ];
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchTimeline = async () => {
+    const fetch = async () => {
       setLoading(true);
+      setError(null);
       try {
-        const data = await getKPITimeline(selectedKPI, selectedArr || null);
-        setTimelineData(data);
-      } catch (error) {
-        console.error('Timeline error:', error);
+        const result = await getKPITimeline(selectedKPI, selectedArr || null);
+        setData(result);
+      } catch (e) {
+        setError('Impossible de charger les données. Vérifiez que l\'API est démarrée.');
       } finally {
         setLoading(false);
       }
     };
-    fetchTimeline();
+    fetch();
   }, [selectedKPI, selectedArr]);
 
-  const chartData = timelineData ? {
-    labels: timelineData.years,
-    datasets: [
-      {
-        label: selectedArr ? `${selectedArr}ème arrondissement` : 'Paris (moyenne)',
-        data: timelineData.values,
-        borderColor: '#3B82F6',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        fill: true,
-        tension: 0.4,
-        pointRadius: 5,
-        pointHoverRadius: 7,
-      },
-    ],
+  const kpiLabel = kpiOptions.find(k => k.value === selectedKPI)?.label || selectedKPI;
+
+  const chartData = data ? {
+    labels: data.years,
+    datasets: [{
+      label: selectedArr ? `${selectedArr}e arrondissement` : 'Paris (moyenne)',
+      data: data.values,
+      borderColor: '#3b82f6',
+      backgroundColor: 'rgba(59,130,246,0.1)',
+      fill: true,
+      tension: 0.4,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+    }],
   } : null;
 
-  const chartOptions = {
-    responsive: true,
-    plugins: {
-      legend: { position: 'top' },
-      title: { display: false },
-      tooltip: { mode: 'index', intersect: false },
-    },
-    scales: {
-      y: {
-        beginAtZero: false,
-        title: { display: true, text: kpiOptions.find(k => k.value === selectedKPI)?.label },
-      },
-      x: {
-        title: { display: true, text: 'Année' },
-      },
-    },
-  };
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Évolution temporelle</h1>
+    <div style={S.page}>
+      <h1 style={{ fontSize: '26px', fontWeight: 700, color: '#1e293b', marginBottom: '24px' }}>
+        Evolution temporelle
+      </h1>
 
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <div className="grid md:grid-cols-2 gap-6">
+      <div style={S.card}>
+        <div style={S.grid}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Indicateur
-            </label>
-            <select
-              className="w-full p-2 border rounded-md"
-              value={selectedKPI}
-              onChange={(e) => setSelectedKPI(e.target.value)}
-            >
-              {kpiOptions.map(kpi => (
-                <option key={kpi.value} value={kpi.value}>{kpi.label}</option>
-              ))}
+            <label style={S.label}>Indicateur</label>
+            <select style={S.select} value={selectedKPI} onChange={(e) => setSelectedKPI(e.target.value)}>
+              {kpiOptions.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Arrondissement (optionnel)
-            </label>
-            <select
-              className="w-full p-2 border rounded-md"
-              value={selectedArr}
-              onChange={(e) => setSelectedArr(e.target.value)}
-            >
+            <label style={S.label}>Arrondissement (optionnel)</label>
+            <select style={S.select} value={selectedArr} onChange={(e) => setSelectedArr(e.target.value)}>
               <option value="">Paris (moyenne)</option>
-              {arrondissements.slice(1).map(arr => (
-                <option key={arr} value={arr}>{arr}ème</option>
-              ))}
+              {arrondissements.map(a => <option key={a} value={a}>{a}e arrondissement</option>)}
             </select>
           </div>
         </div>
       </div>
 
-      {loading ? (
-        <Loader size="lg" />
-      ) : chartData ? (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <Line data={chartData} options={chartOptions} />
+      {error && (
+        <div style={{ background: '#fee2e2', color: '#dc2626', padding: '14px', borderRadius: '8px', marginBottom: '16px' }}>
+          {error}
         </div>
-      ) : (
-        <div className="text-center text-gray-500 py-12">
-          Aucune donnée disponible pour cette sélection
+      )}
+
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>
+          Chargement...
+        </div>
+      )}
+
+      {!loading && chartData && (
+        <div style={S.card}>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#1e293b', marginBottom: '20px' }}>
+            {kpiLabel} — {selectedArr ? `${selectedArr}e arrondissement` : 'Paris (moyenne)'}
+          </h2>
+          <Line
+            data={chartData}
+            options={{
+              responsive: true,
+              plugins: {
+                legend: { position: 'top' },
+                tooltip: { mode: 'index', intersect: false },
+              },
+              scales: {
+                y: {
+                  beginAtZero: false,
+                  title: { display: true, text: kpiLabel },
+                },
+                x: {
+                  title: { display: true, text: 'Année' },
+                },
+              },
+            }}
+          />
+        </div>
+      )}
+
+      {!loading && !chartData && !error && (
+        <div style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>
+          Aucune donnée disponible
         </div>
       )}
     </div>

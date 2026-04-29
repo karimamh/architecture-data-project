@@ -78,3 +78,14 @@ exports.getTransportScore = (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+
+exports.getAllTransport=(req,res)=>{
+res.json({
+endpoints:[
+'/metro',
+'/velib',
+'/score/:arrondissement'
+]
+});
+};
